@@ -70,7 +70,7 @@ class GAN(nn.Module):
         dataset = AudioDataset(
                 data_dir = DATA_PATH,
                 target_sample_rate=16000,
-                num_samples=16000 * 60
+                num_samples=16000 * 1
                 )
         dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
         return dataloader
@@ -83,16 +83,62 @@ class GAN(nn.Module):
         pass
 
 class Discriminator(nn.Module):
-    def __init__(self):
+    def __init__(self, in_channel = 1):
         super().__init__()
+        self.main = nn.Sequential(
+                nn.Conv1d(in_channel, 64, kernel_size=25, stride=4, padding=11),
+                nn.LeakyReLU(0.2),
 
-    def forward(self):
-        pass
+                nn.Conv1d(64, 128, kernel_size=25, stride=4, padding=11),
+                nn.LeakyReLU(0.2),
+
+                nn.Conv1d(128, 256, kernel_size=25, stride=4, padding=11),
+                nn.LeakyReLU(0.2),
+
+                nn.Conv1d(256, 512, kernel_size=25, stride=4, padding=11),
+                nn.LeakyReLU(0.2),
+
+                nn.Conv1d(512, 1024, kernel_size=25, stride=4, padding=11),
+                nn.LeakyReLU(0.2),
+                )
+        self.fc = nn.Linear(1024*16, 1)
+        self.sigmoid = nn.Sigmoid()
+    def forward(self,x):
+        x = self.main(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return self.sigmoid(x)
+        
         
 
 class Generator(nn.Module):
-    def __init__(self):
+    def __init__(self, in_size = 100, out_chanels = 1):
         super().__init__()
 
-    def forward(self):
-        pass
+        self.init_len = 125
+        self.fc = nn.Linear(in_size, 256 * self.init_len)
+        self.main = nn.Sequential(
+            
+            nn.ConvTranspose1d(256, 128, kernel_size=16, stride=4, padding=6),
+            nn.BatchNorm1d(128),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose1d(128, 64, kernel_size=16, stride=4, padding=6),
+            nn.BatchNorm1d(64),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose1d(64, 32, kernel_size=16, stride=4, padding=6),
+            nn.BatchNorm1d(32),
+            nn.LeakyReLU(0.2),
+
+            nn.ConvTranspose1d(32, out_chanels, kernel_size=16, stride=2, padding=7),
+            nn.BatchNorm1d(32),
+            nn.LeakyReLU(0.2),
+
+            nn.Tanh()
+        )
+
+    def forward(self, x):
+        x = self.fc(x)
+        x = x.view(-1, 256, self.init_len)
+        return self.main(x)
