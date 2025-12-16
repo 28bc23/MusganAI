@@ -1,5 +1,6 @@
 import torch as T
 import torch.nn as nn
+import os
 
 class GAN(nn.Module):
     def __init__(self, bCuda, g_lr, d_lr, epochs, bSaveProgressSamples):
@@ -17,10 +18,41 @@ class GAN(nn.Module):
         self.d_lr = d_lr
 
     def load(self):
-        pass
+        path = "../Models/InTraining/"
+        biggest_epoch = -1
+        longest_trained = None
+        for p in os.scandir(path):
+            name = os.path.splitext(os.path.basename(p.path))[0]
+            epoch = name.split("_")[2]
+            if epoch > biggest_epoch:
+                biggest_epoch = epoch
+                longest_trained = p 
+        if longest_trained != None:
+            epoch = save.get('epoch', 0)
+            generator = save.get('generator', None)
+            discriminator = save.get('discriminator', None)
+            optim_g = save.get('optim_g', None)
+            optim_d = save.get('optim_d', None)
+            if (generator is not None) and (discriminator is not None) and (optim_g is not None) and (optim_d is not None):
+                self.gener.load_state_dict(generator)
+                self.discr.load_state_dict(discriminator)
+                
 
-    def save(self):
-        pass
+    def save(self, epoch):
+        path = f"../Models/InTraining/"
+        if not os.path.exists(path):
+            os.makedirs(path)
+
+        save = {
+            'epoch': epoch,
+            'generator': self.gener.state_dict(),
+            'discriminator': self.discr.state_dict(),
+            'optim_g': self.optim_g.state_dict(),
+            'optim_d': self.optim_d.state_dict(),
+        }
+
+        torch.save(save, f"{path}/musgan_epoch_{epoch}.pth")
+        print("--- saved ---")
 
     def get_dataset(self):
         pass
