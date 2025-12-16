@@ -1,6 +1,14 @@
 import torch as T
 import torch.nn as nn
 import os
+import sys
+import torchaudio
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
+import torch.nn.functional as F
+
+sys.path.append("./")
+from AudioLoader import AudioDataset
 
 class GAN(nn.Module):
     def __init__(self, bCuda, g_lr, d_lr, epochs, bSaveProgressSamples):
@@ -36,7 +44,10 @@ class GAN(nn.Module):
             if (generator is not None) and (discriminator is not None) and (optim_g is not None) and (optim_d is not None):
                 self.gener.load_state_dict(generator)
                 self.discr.load_state_dict(discriminator)
-                
+                print("--- loaded ---")
+                return True
+            
+        return False
 
     def save(self, epoch):
         path = f"../Models/InTraining/"
@@ -55,7 +66,14 @@ class GAN(nn.Module):
         print("--- saved ---")
 
     def get_dataset(self):
-        pass
+        DATA_PATH = "../Data"
+        dataset = AudioDataset(
+                data_dir = DATA_PATH,
+                target_sample_rate=16000,
+                num_samples=16000 * 60
+                )
+        dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+        return dataloader
 
     def train(self):
         pass
