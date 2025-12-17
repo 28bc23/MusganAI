@@ -30,8 +30,14 @@ if mode == TRAIN_MODE:
         if bCudaStr.lower() == "n":
             bCuda = False
 
-        g_lr = float(input("enter learning rate for generator (float): "))
-        d_lr = float(input("enter learning rate for discriminator (float): "))
+        g_lr_str = input("enter learning rate for generator (0.0005): ")
+        if g_lr_str.isnumeric():
+            g_lr = g_lr_str
+
+        d_lr_str = input("enter learning rate for discriminator (0.0005): ")
+        if d_lr_str.isnumeric():
+            d_lr = d_lr_str
+
         epochs = int(input("epochs to train (int): "))
  
         progressStr = input("Wanna save samples to track progress (Y/n): ")

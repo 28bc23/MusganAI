@@ -34,13 +34,13 @@ class GAN(nn.Module):
         self.noise_dim = noise_dim
 
 
-        self.optim_g = optim.Adam(self.gener.parameters(), lr=lr_g, betas=(0.5, 0.999))
-        self.optim_d = optim.Adam(self.discr.parameters(), lr=lr_d, betas=(0.5, 0.999))
+        self.optim_g = optim.Adam(self.gener.parameters(), lr=g_lr, betas=(0.5, 0.999))
+        self.optim_d = optim.Adam(self.discr.parameters(), lr=d_lr, betas=(0.5, 0.999))
         self.loss = nn.BCELoss()
 
         self.real_label = 0.9
         self.fake_label = 0.1
-        self.fixed_noise = torch.randn(1, self.noise_dim, device=self.device)
+        self.fixed_noise = T.randn(1, self.noise_dim, device=self.device)
     def load(self):
         path = "../Models/InTraining/"
         biggest_epoch = -1
@@ -82,7 +82,7 @@ class GAN(nn.Module):
         print("--- saved ---")
 
     def get_dataset(self):
-        DATA_PATH = "../Data"
+        DATA_PATH = "./Data"
         dataset = AudioDataset(
                 data_dir = DATA_PATH,
                 target_sample_rate=self.sample_rate,
@@ -93,7 +93,7 @@ class GAN(nn.Module):
 
     def train(self):
         dataset = self.get_dataset()
-        for e in Range(0, self.epochs):
+        for e in range(0, self.epochs):
             for idx, (batch, label) in enumerate(dataset):
                 self.optim_d.zero_grad()
 
