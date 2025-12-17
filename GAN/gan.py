@@ -6,12 +6,14 @@ import torchaudio
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 import torch.nn.functional as F
+import torch.optim as optim
+
 
 sys.path.append("./")
 from AudioLoader import AudioDataset
 
 class GAN(nn.Module):
-    def __init__(self, bCuda, g_lr, d_lr, epochs, bSaveProgressSamples):
+    def __init__(self, bCuda = True, g_lr = 0.00005, d_lr = 0.00005, epochs = 1000, bSaveProgressSamples = True, sample_rate = 16000, lenght_sec = 1, batch_size = 32, noise_dim = 100):
         super().__init__()
         self.epochs = epochs
         self.bSaveProgressSamples = bSaveProgressSamples
@@ -20,11 +22,25 @@ class GAN(nn.Module):
         print(f"using: {self.device}")
 
         self.discr = Discriminator().to(self.device)
-        self.gener = Generator().to(self.device)
+        self.gener = Generator(noise_dim).to(self.device)
 
         self.g_lr = g_lr
         self.d_lr = d_lr
 
+        self.sample_rate = sample_rate
+        self.lenght_sec = lenght_sec
+        self.total_samples = lenght_sec * sample_rate
+        self.batch_size = batch_size
+        self.noise_dim = noise_dim
+
+
+        self.optim_g = optim.Adam(self.gener.parameters(), lr=lr_g, betas=(0.5, 0.999))
+        self.optim_d = optim.Adam(self.discr.parameters(), lr=lr_d, betas=(0.5, 0.999))
+        self.loss = nn.BCELoss()
+
+        self.real_label = 0.9
+        self.fake_label = 0.1
+        self.fixed_noise = torch.randn(1, self.noise_dim, device=self.device)
     def load(self):
         path = "../Models/InTraining/"
         biggest_epoch = -1
@@ -69,18 +85,58 @@ class GAN(nn.Module):
         DATA_PATH = "../Data"
         dataset = AudioDataset(
                 data_dir = DATA_PATH,
-                target_sample_rate=16000,
-                num_samples=16000 * 1
+                target_sample_rate=self.sample_rate,
+                num_samples=self.total_samples
                 )
-        dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+        dataloader = DataLoader(dataset, batch_size=self.batch_size, shuffle=True)
         return dataloader
 
     def train(self):
-        pass
+        dataset = self.get_dataset()
+        for e in Range(0, self.epochs):
+            for idx, (batch, label) in enumerate(dataset):
+                self.optim_d.zero_grad()
+
+                noise = T.randn(batch.size(0), self.noise_dim, device=self.device)
+                fake = self.gener(noise)
+                fake = fake.detach()
+
+                real_val = self.discr(batch).view(-1)
+                fake_val = self.discr(fake).view(-1)
+
+                label = torch.full((batch.shape[0],), self.real_label,dtype=T.float, device=self.device)
+                real_loss = self.loss(real_val, label)
+                real_loss.backward()
+
+                label.fill_(self.fake_label)
+                fake_losss = self.loss(fake_val, label)
+                fake_losss.backward()
+
+                self.optim_d.step()
+
+
+                self.optim_g.zero_grad()
+                label.fill_(self.real_label)
+                noise = T.randn(batch.size(0), self.noise_dim, device=self.device)
+                y = self.gener(noise)
+                val = self.discr(y).view(-1)
+                g_loss = self.loss(val, label)
+                g_loss.backward()
+                self.optim_g.step()
+
+                print(f"epoch: {e}, batch: {idx}, fake val: {fake_val.mean().item()}, real val: {real_val.mean().item()}, real loss: {real_loss.mean.item()}, fake loss: {fake_losss.mean().item()}, gen loss: {g_loss.mean().item()}")
+
+
+
+
     def gen(self):
-        pass
-    def optim(self):
-        pass
+        self.gener.eval()
+        with T.no_grad():
+            noise = T.randn(1, self.noise_dim, device=self.device)
+            wave = self.gener(noise)
+        self.gener.train()
+        return wave
+
 
 class Discriminator(nn.Module):
     def __init__(self, in_channel = 1):
@@ -112,11 +168,11 @@ class Discriminator(nn.Module):
         
 
 class Generator(nn.Module):
-    def __init__(self, in_size = 100, out_chanels = 1):
+    def __init__(self, noise_dim, out_chanels = 1):
         super().__init__()
 
         self.init_len = 125
-        self.fc = nn.Linear(in_size, 256 * self.init_len)
+        self.fc = nn.Linear(noise_dim, 256 * self.init_len)
         self.main = nn.Sequential(
             
             nn.ConvTranspose1d(256, 128, kernel_size=16, stride=4, padding=6),
@@ -132,7 +188,7 @@ class Generator(nn.Module):
             nn.LeakyReLU(0.2),
 
             nn.ConvTranspose1d(32, out_chanels, kernel_size=16, stride=2, padding=7),
-            nn.BatchNorm1d(32),
+            nn.BatchNorm1d(out_chanels),
             nn.LeakyReLU(0.2),
 
             nn.Tanh()
